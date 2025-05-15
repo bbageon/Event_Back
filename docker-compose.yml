@@ -1,0 +1,80 @@
+services:
+
+  mongo:
+    image: mongo:latest
+    container_name: event_back_mongo_db
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: 1234 # 강력한 비밀번호로 변경하세요!
+      MONGO_INITDB_DATABASE: admin
+
+  # 2. 인증 서비스 (auth-server) - 서비스 이름 자체를 폴더 이름과 동일하게
+  auth-server: # <--- 서비스 이름!
+    build:
+      context: ./auth-server # 폴더 이름
+      target: development
+    container_name: event_back_auth_dev
+    ports:
+      - "3001:3000" # 로컬 3001 -> 컨테이너 3000
+    volumes:
+      - ./auth-server:/usr/src/app
+      # - /usr/src/app/node_modules
+    env_file:
+      - ./auth-server/.env.development # .env 파일 경로
+    environment:
+      NODE_ENV : development
+    depends_on:
+      - mongo
+    command: ["npm", "run", "start:dev"]
+    # command: ["sleep", "infinity"]
+
+  # 3. 이벤트 서비스 (event-server) - 서비스 이름 자체를 폴더 이름과 동일하게
+  event-server:
+    build:
+      context: ./event-server # 폴더 이름
+      target: development
+    container_name: event_back_event_dev
+    ports:
+      - "3002:3000" # 로컬 3002 -> 컨테이너 3000
+    volumes:
+      - ./event-server:/usr/src/app
+      # - /usr/src/app/node_modules
+    env_file:
+      - ./event-server/.env.development # .env 파일 경로
+    environment:
+      NODE_ENV : development
+    depends_on:
+      - mongo
+      - auth-server
+    command: ["npm", "run", "start:dev"]
+
+  # 4. 게이트웨이 서비스 (gateway-server) - 서비스 이름 자체를 폴더 이름과 동일하게
+  gateway-server: # <--- 서비스 이름!
+    build:
+      context: ./gateway-server # 폴더 이름
+      target: development
+    container_name: event_back_gateway_dev
+    ports:
+      - "3000:3000" # 로컬 3000 -> 컨테이너 3000
+    volumes:
+      - ./gateway-server:/usr/src/app
+      # - /usr/src/app/node_modules
+    env_file:
+      - ./gateway-server/.env.development # .env 파일 경로
+    environment:  
+      NODE_ENV : development
+
+    depends_on:
+      - auth-server
+      - event-server
+    command: ["npm", "run", "start:dev"]
+
+volumes:
+  mongo_data: {}
+# networks:
+#   default:
+#     driver: bridge
